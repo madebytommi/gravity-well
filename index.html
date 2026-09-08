@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101214" />
+    <meta name="description" content="Gravity Well — a quiet study in mass, movement, and attention." />
+    <title>Gravity Well — A study in attention</title>
+  </head>
+  <body>
+    <div class="site-shell" data-state="NORMAL">
+      <header class="site-header">
+        <a class="wordmark" href="#top" aria-label="Gravity Well home">
+          <span class="wordmark-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>Gravity Well</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="#field">The field</a>
+          <a href="#notes">Field notes</a>
+          <a href="#about">About</a>
+        </nav>
+        <div class="header-meta"><span class="meta-dot"></span><span>Interactive study / 01</span></div>
+      </header>
+
+      <main id="top">
+        <section class="hero" aria-labelledby="page-title">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-line"></span>An experiment in attention</p>
+            <h1 id="page-title">Where structure<br /><em>gives in.</em></h1>
+            <p class="hero-lede">A small collection of ideas, objects, and observations. Give them a little mass and see what they choose to become.</p>
+            <div class="hero-actions">
+              <button class="primary-action" id="enable-gravity" type="button">
+                <span class="action-orbit" aria-hidden="true"></span>
+                <span>Enable gravity</span>
+                <span class="action-arrow" aria-hidden="true">↗</span>
+              </button>
+              <span class="action-note">Drag an object.<br />Change its trajectory.</span>
+            </div>
+          </div>
+
+          <div class="hero-visual" aria-label="Orbital field illustration">
+            <div class="orbit-graphic" aria-hidden="true">
+              <span class="orbit-ring orbit-ring-one"></span>
+              <span class="orbit-ring orbit-ring-two"></span>
+              <span class="orbit-ring orbit-ring-three"></span>
+              <span class="orbit-core"></span>
+              <span class="orbit-satellite orbit-satellite-one" data-gravity data-body-id="satellite-one"></span>
+              <span class="orbit-satellite orbit-satellite-two" data-gravity data-body-id="satellite-two"></span>
+            </div>
+            <div class="visual-caption"><span>01</span><span>Mass / motion / memory</span></div>
+          </div>
+        </section>
+
+        <section class="field-intro" id="field" aria-labelledby="field-title">
+          <div>
+            <p class="eyebrow"><span class="eyebrow-line"></span>Objects in the field</p>
+            <h2 id="field-title">A system<br /><em>with a pull.</em></h2>
+          </div>
+          <div class="field-description">
+            <p>Nothing here is fixed. The cards below are snapshots of a system in balance: a signal, a question, a fragment of a larger map.</p>
+            <p class="micro-copy">Press the button to release them into a shared field.</p>
+          </div>
+        </section>
+
+        <section class="object-grid" aria-label="Objects in the field">
+          <article class="object-card object-card--signal" data-gravity data-body-id="signal">
+            <div class="card-topline"><span>Signal / 001</span><span class="card-cross" aria-hidden="true">＋</span></div>
+            <div class="signal-wave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <h3>Every system<br />leaves a trace.</h3>
+            <p>Look for the residue of a decision.</p>
+            <div class="card-foot"><span>Amplitude</span><strong>0.82</strong></div>
+          </article>
+
+          <article class="object-card object-card--quote" data-gravity data-body-id="question">
+            <div class="card-topline"><span>Question / 014</span><span class="card-index">02</span></div>
+            <blockquote>“What we call a center is often just the place we agree to orbit.”</blockquote>
+            <div class="quote-author"><span class="author-mark">M</span><span>Margin notes<br /><small>On orientation</small></span></div>
+          </article>
+
+          <article class="object-card object-card--map" data-gravity data-body-id="map">
+            <div class="card-topline"><span>Field note / 032</span><span class="card-cross" aria-hidden="true">＋</span></div>
+            <div class="map-lines" aria-hidden="true"><span></span><span></span><span></span><i></i><i></i><i></i></div>
+            <div class="map-label"><strong>North / 41°</strong><span>Quiet point</span></div>
+            <p>Direction is a story we tell after the fact.</p>
+          </article>
+
+          <article class="object-card object-card--metric" data-gravity data-body-id="measure">
+            <div class="card-topline"><span>Measure / 007</span><span class="card-index">04</span></div>
+            <div class="metric-value">03<span>:</span>17</div>
+            <div class="metric-rule"><span></span></div>
+            <div class="metric-copy"><span>Time to return</span><strong>+ 12.4%</strong></div>
+          </article>
+
+          <article class="object-card object-card--small" data-gravity data-body-id="fragment">
+            <div class="card-topline"><span>Fragment / 089</span><span>○</span></div>
+            <p>Keep a little room for the unknown.</p>
+            <span class="fragment-mark" aria-hidden="true">∿</span>
+          </article>
+        </section>
+
+        <section class="notes-section" id="notes" aria-labelledby="notes-title">
+          <div class="notes-heading"><p class="eyebrow"><span class="eyebrow-line"></span>Field notes</p><h2 id="notes-title">A softer<br /><em>kind of force.</em></h2></div>
+          <div class="notes-list">
+            <div class="note-row"><span class="note-number">01</span><p>Attraction is gradual. The best paths are rarely straight.</p><span class="note-arrow">↗</span></div>
+            <div class="note-row"><span class="note-number">02</span><p>Momentum is a memory with somewhere to go.</p><span class="note-arrow">↗</span></div>
+            <div class="note-row"><span class="note-number">03</span><p>Release changes the shape of the question.</p><span class="note-arrow">↗</span></div>
+          </div>
+        </section>
+
+        <section class="closing-section" id="about" aria-label="About this study">
+          <span class="closing-index">GW / 2026</span>
+          <p>Designed as a quiet, playable study of how a small system finds its center.</p>
+          <span class="closing-mark" aria-hidden="true">◎</span>
+        </section>
+      </main>
+
+      <aside class="gravity-controls" aria-label="Gravity controls">
+        <div class="control-status"><span class="status-indicator"></span><span id="state-label">System normal</span></div>
+        <label class="strength-control" for="gravity-strength"><span>Pull strength</span><output id="strength-value" for="gravity-strength">1.0×</output></label>
+        <input id="gravity-strength" type="range" min="0.45" max="1.6" step="0.05" value="1" aria-label="Pull strength" />
+      </aside>
+      <button class="reset-action persistent-reset" id="reset-gravity" type="button"><span>Reset system</span><span aria-hidden="true">↻</span></button>
+      <div class="capture-readout" aria-live="polite"><span id="capture-count">0</span><span>/ <span id="capture-total">7</span> captured</span></div>
+      <canvas id="gravity-canvas" aria-label="Interactive gravity field"></canvas>
+      <div class="sr-only" id="interaction-help">Gravity is active. Drag a floating card and release to throw it. Press Reset system to restore the layout.</div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
