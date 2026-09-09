@@ -2,7 +2,7 @@ import { CONFIG, STATES, clamp } from './config.js';
 import { GravityState } from './state.js';
 import { GravityScene } from './scene.js';
 import { GravitySimulation, seedTangentialVelocity } from './simulation.js';
-import { measureElement, makeBodySprite, snapshotElement } from './conversion.js';
+import { measureElement, makeBodySprite, snapshotElement, snapshotPageBackground } from './conversion.js';
 import { PointerGrabber } from './pointer.js';
 import './styles.css';
 
@@ -25,7 +25,10 @@ let previousTime = performance.now();
 let accumulator = 0;
 let transitionTimer = null;
 let captured = 0;
+let transitionStartedAt = 0;
+let transitionDuration = 1000;
 let resetStartedAt = 0;
+let resetLensingStart = 1.0;
 let resetTargets = new Map();
 let resetFinalized = false;
 
@@ -61,6 +64,8 @@ const state = new GravityState((next) => {
   root.classList.toggle('is-field-visible', fieldVisible);
   canvas.classList.toggle('is-active', fieldVisible);
   enableButton.disabled = next !== STATES.NORMAL;
+  resetButton.hidden = next === STATES.NORMAL;
+  resetButton.disabled = next === STATES.RESETTING;
   enableButton.setAttribute('aria-expanded', String(next === STATES.GRAVITY_ACTIVE));
 });
 
@@ -71,8 +76,12 @@ const simulation = new GravitySimulation({
     captured += 1;
     captureCount.textContent = String(captured);
     scene.syncBody(body);
+    scene.triggerCaptureReaction(body);
     // Keep the captured plane attached at zero scale until reset so the
     // return animation can restore every source consistently.
+  },
+  onCaptureStart: (body) => {
+    scene.triggerCaptureReaction(body);
   },
 });
 
@@ -100,6 +109,15 @@ async function enterGravity() {
   bodies.splice(0);
   scene.resize();
   simulation.setCenter(scene.center);
+
+  // Take one-time snapshot of visible page at transition start
+  transitionStartedAt = performance.now();
+  transitionDuration = (gravityElements.length * 88) + CONFIG.transitionMs;
+  scene.setLensingStrength(0.0);
+  const bgSnapshot = await snapshotPageBackground(window.innerWidth, window.innerHeight);
+  if (state.value !== STATES.TRANSITIONING) return;
+  scene.setBackground(bgSnapshot);
+
   const snapshots = await Promise.all(gravityElements.map(async (element, index) => ({ element, index, snapshot: await snapshotElement(element), measure: measureElement(element) })));
   if (state.value !== STATES.TRANSITIONING) return;
   // Snapshot decoding can take longer than a frame; start the capture grace
@@ -109,6 +127,7 @@ async function enterGravity() {
     if (state.value !== STATES.TRANSITIONING) break;
     const inViewport = measure.y + measure.height / 2 > 0 && measure.y - measure.height / 2 < window.innerHeight;
     const placement = inViewport ? measure : stagingPosition(index, measure);
+    const isCard = element.classList.contains('object-card');
     const body = {
       id: element.dataset.bodyId,
       element,
@@ -121,7 +140,7 @@ async function enterGravity() {
       radius: Math.max(22, Math.min(placement.width, placement.height) * .38),
       mass: clamp((measure.width * measure.height) / 26_000, .7, 2.3),
       zIndex: index,
-      scale: 1,
+      scale: isCard ? 0.88 : 1,
       opacity: 1,
       status: 'ACTIVE',
       angle: 0,
@@ -149,6 +168,7 @@ function resetGravity() {
   pointer.end(null, true);
   window.clearTimeout(transitionTimer);
   resetStartedAt = performance.now();
+  resetLensingStart = scene.lensingStrength || 1.0;
   resetFinalized = false;
   resetTargets = new Map(gravityElements.map((element) => [element.dataset.bodyId, measureElement(element)]));
   for (const body of bodies) {
@@ -173,6 +193,8 @@ function finalizeReset() {
   captureCount.textContent = '0';
   root.classList.remove('is-grabbing');
   resetTargets = new Map();
+  scene.setLensingStrength(0.0);
+  scene.clearBackground();
   state.transition(STATES.NORMAL);
   scene.render();
 }
@@ -180,15 +202,33 @@ function finalizeReset() {
 function animate(now) {
   const frameDelta = Math.min(CONFIG.maxFrameDelta, Math.max(0, (now - previousTime) / 1000));
   previousTime = now;
-  if (state.value === STATES.GRAVITY_ACTIVE || state.value === STATES.TRANSITIONING) {
+  const isFieldActive = state.value === STATES.GRAVITY_ACTIVE || state.value === STATES.TRANSITIONING;
+  const isFieldVisible = isFieldActive || state.value === STATES.RESETTING;
+
+  // Lensing strength transition ramp
+  if (state.value === STATES.TRANSITIONING) {
+    const progress = clamp((now - transitionStartedAt) / Math.max(1, transitionDuration), 0, 1);
+    const eased = progress * progress * (3 - 2 * progress);
+    scene.setLensingStrength(eased);
+  } else if (state.value === STATES.GRAVITY_ACTIVE) {
+    scene.setLensingStrength(1.0);
+  } else if (state.value === STATES.RESETTING) {
+    const progress = clamp((now - resetStartedAt) / CONFIG.resetMs, 0, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    scene.setLensingStrength(resetLensingStart * (1 - eased));
+  } else {
+    scene.setLensingStrength(0.0);
+  }
+
+  if (isFieldActive) {
     accumulator = Math.min(CONFIG.maxAccumulator, accumulator + frameDelta);
     while (accumulator >= CONFIG.fixedStep) {
       simulation.step(CONFIG.fixedStep);
       accumulator -= CONFIG.fixedStep;
     }
     for (const body of bodies) scene.syncBody(body);
-    scene.render();
   }
+
   if (state.value === STATES.RESETTING) {
     const progress = clamp((now - resetStartedAt) / CONFIG.resetMs, 0, 1);
     const eased = 1 - Math.pow(1 - progress, 3);
@@ -204,9 +244,14 @@ function animate(now) {
       body.opacity = start.opacity + (1 - start.opacity) * eased;
       scene.syncBody(body);
     }
-    scene.render();
     if (progress >= 1) finalizeReset();
   }
+
+  if (isFieldVisible) {
+    scene.update(frameDelta, now * 0.001, isFieldActive);
+    scene.render();
+  }
+
   animationFrame = window.requestAnimationFrame(animate);
 }
 
@@ -226,5 +271,6 @@ window.addEventListener('resize', () => {
 });
 
 updateStrength();
+scene.update(0, 0, false);
 scene.render();
 animationFrame = window.requestAnimationFrame(animate);

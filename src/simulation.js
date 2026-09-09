@@ -39,12 +39,13 @@ export function seedTangentialVelocity(body, center, index = 0) {
 }
 
 export class GravitySimulation {
-  constructor({ center = { x: 0, y: 0 }, strength = CONFIG.defaultStrength, onCapture = () => {} } = {}) {
+  constructor({ center = { x: 0, y: 0 }, strength = CONFIG.defaultStrength, onCapture = () => {}, onCaptureStart = () => {} } = {}) {
     this.center = { x: center.x, y: center.y };
     this.strength = strength;
     this.bodies = [];
     this.elapsed = 0;
     this.onCapture = onCapture;
+    this.onCaptureStart = onCaptureStart;
   }
 
   setCenter(center) {
@@ -103,7 +104,7 @@ export class GravitySimulation {
       const distanceSquared = dx * dx + dy * dy;
       const softened = distanceSquared + CONFIG.softening * CONFIG.softening;
       const inverseDistance = 1 / Math.sqrt(softened);
-      const acceleration = (CONFIG.gravityConstant * this.strength * body.mass) / softened;
+      const acceleration = (CONFIG.gravityConstant * this.strength) / softened;
       body.vx += dx * inverseDistance * acceleration * step;
       body.vy += dy * inverseDistance * acceleration * step;
       body.vx *= Math.pow(0.9992, step * 60);
@@ -119,6 +120,7 @@ export class GravitySimulation {
       if (this.elapsed > CONFIG.captureDelay && distance < CONFIG.captureRadius) {
         body.status = 'CAPTURING';
         body.captureProgress = 0;
+        this.onCaptureStart(body);
       }
     }
 

@@ -48,15 +48,54 @@ h1 em, h2 em { color: var(--accent); font-style: italic; }
 .action-arrow { font-size: 1.05rem; font-weight: 400; line-height: .6; margin-left: .4rem; }
 .action-note { color: var(--subtle); font-size: .66rem; line-height: 1.45; }
 .hero-visual { align-items: center; display: flex; justify-content: center; position: relative; }
-.orbit-graphic { height: min(38vw, 460px); max-height: 460px; max-width: 460px; position: relative; width: min(38vw, 460px); }
-.orbit-ring { border: 1px solid rgba(218, 179, 141, .3); border-radius: 50%; display: block; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%) rotate(-18deg); }
-.orbit-ring-one { height: 38%; width: 78%; }
-.orbit-ring-two { border-color: rgba(123, 146, 150, .35); height: 68%; transform: translate(-50%, -50%) rotate(58deg); width: 92%; }
-.orbit-ring-three { border-color: rgba(240, 232, 217, .17); height: 90%; transform: translate(-50%, -50%) rotate(-34deg); width: 56%; }
-.orbit-core { background: #090a0b; border: 1px solid var(--accent); border-radius: 50%; box-shadow: 0 0 0 12px rgba(218, 179, 141, .05), 0 0 55px rgba(228, 135, 108, .17); height: 52px; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); width: 52px; }
+.orbit-graphic { height: min(38vw, 460px); max-height: 460px; max-width: 460px; position: relative; transition: opacity .5s ease; width: min(38vw, 460px); }
+.orbit-ring { border: 1px solid rgba(218, 179, 141, .3); border-radius: 50%; display: block; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%) rotate(var(--orbit-rotate, -18deg)) scale(1); transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease; }
+.orbit-ring-one { --orbit-rotate: -18deg; height: 38%; width: 78%; }
+.orbit-ring-two { border-color: rgba(123, 146, 150, .35); height: 68%; --orbit-rotate: 58deg; width: 92%; }
+.orbit-ring-three { border-color: rgba(240, 232, 217, .17); height: 90%; --orbit-rotate: -34deg; width: 56%; }
+.orbit-core { background: #090a0b; border: 1px solid var(--accent); border-radius: 50%; box-shadow: 0 0 0 12px rgba(218, 179, 141, .05), 0 0 55px rgba(228, 135, 108, .17); height: 52px; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%) scale(1); width: 52px; transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease, box-shadow 0.5s ease; }
 .orbit-satellite { background: var(--coral); border-radius: 50%; height: 8px; position: absolute; width: 8px; }
 .orbit-satellite-one { left: 12%; top: 61%; }
 .orbit-satellite-two { background: var(--blue); height: 5px; right: 7%; top: 27%; width: 5px; }
+
+/* Coordinated state-based transitions for hero orbital graphic */
+[data-state="TRANSITIONING"] .orbit-ring {
+  transform: translate(-50%, -50%) rotate(var(--orbit-rotate, -18deg)) scale(0.5);
+  opacity: 0;
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+}
+[data-state="TRANSITIONING"] .orbit-core {
+  transform: translate(-50%, -50%) scale(0.5);
+  opacity: 0;
+  box-shadow: 0 0 0 0 rgba(218, 179, 141, 0), 0 0 0 rgba(228, 135, 108, 0);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease, box-shadow 0.5s ease;
+}
+[data-state="GRAVITY_ACTIVE"] .orbit-graphic,
+[data-state="GRAVITY_ACTIVE"] .orbit-ring,
+[data-state="GRAVITY_ACTIVE"] .orbit-core {
+  opacity: 0;
+  pointer-events: none;
+}
+[data-state="GRAVITY_ACTIVE"] .orbit-ring {
+  transform: translate(-50%, -50%) rotate(var(--orbit-rotate, -18deg)) scale(0.5);
+}
+[data-state="GRAVITY_ACTIVE"] .orbit-core {
+  transform: translate(-50%, -50%) scale(0.5);
+}
+[data-state="RESETTING"] .orbit-graphic {
+  opacity: 1;
+}
+[data-state="RESETTING"] .orbit-ring {
+  transform: translate(-50%, -50%) rotate(var(--orbit-rotate, -18deg)) scale(1);
+  opacity: 1;
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease;
+}
+[data-state="RESETTING"] .orbit-core {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  box-shadow: 0 0 0 12px rgba(218, 179, 141, .05), 0 0 55px rgba(228, 135, 108, .17);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease, box-shadow 0.42s ease;
+}
 .visual-caption { bottom: 0; color: var(--subtle); display: flex; font-size: .6rem; justify-content: space-between; left: 0; letter-spacing: .13em; position: absolute; text-transform: uppercase; width: 100%; }
 .visual-caption span:first-child { color: var(--accent); }
 .field-intro { border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; margin: 0 10vw; padding: 6.5rem 3vw 4.2rem; }
@@ -96,3 +135,5 @@ h1 em, h2 em { color: var(--accent); font-style: italic; }
 @media (max-width: 600px) { .site-header { height: 64px; margin: 0 6vw; }.header-meta { font-size: .55rem; }.hero { padding: 5rem 8vw 2rem; }.hero-visual { min-height: 330px; }.visual-caption { font-size: .53rem; }.hero-actions { align-items: flex-start; flex-direction: column; gap: .8rem; }.field-intro { margin: 0 8vw; padding-top: 4rem; }.object-grid { display: flex; flex-direction: column; margin: 0 8vw; padding-bottom: 6rem; }.object-card { margin: 0 !important; min-height: 240px; }.object-card--quote { min-height: 290px; }.notes-section { display: block; margin: 0 8vw; padding-bottom: 6rem; padding-top: 4rem; }.notes-list { margin-top: 3rem; }.note-row { gap: .8rem; grid-template-columns: 1.7rem 1fr 1rem; }.gravity-controls { bottom: .75rem; gap: .5rem; max-width: calc(100vw - 1.5rem); padding: .55rem; width: max-content; }.control-status { display: none; }.strength-control { border-left: 0; padding-left: 0; }.gravity-controls input[type="range"] { width: 64px; }.reset-action { padding: .55rem; }.capture-readout { bottom: 4.8rem; left: 8vw; }.closing-section { margin: 0 8vw; padding-left: 0; padding-right: 0; } }
 @media (max-width: 600px) { .site-shell.is-field-visible .persistent-reset { bottom: .75rem; left: auto; right: .75rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+.reset-action[hidden] { display: none; }
+.reset-action:disabled { cursor: default; opacity: .52; }
