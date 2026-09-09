@@ -7,7 +7,7 @@ import {
   LENSING_VERTEX_SHADER,
   LENSING_FRAGMENT_SHADER,
 } from '../src/lensing.js';
-import { snapshotPageBackground, createFallbackBackgroundCanvas } from '../src/conversion.js';
+import { SNAPSHOT_TIMEOUT_MS, snapshotPageBackground, createFallbackBackgroundCanvas } from '../src/conversion.js';
 import { GravityScene } from '../src/scene.js';
 
 test('LensingShaderMaterial initializes with all required uniforms and shaders', () => {
@@ -19,6 +19,8 @@ test('LensingShaderMaterial initializes with all required uniforms and shaders',
   assert.ok(material.fragmentShader.includes('uEinsteinRadiusSq'));
   assert.ok(material.fragmentShader.includes('uHorizonRadius'));
   assert.ok(material.fragmentShader.includes('smoothstep(uMaxDistortionRadius, uCriticalRadius, r)'));
+  assert.ok(material.fragmentShader.includes('mix(0.85, 1.0, smoothstep(uHorizonRadius, uCriticalRadius, r))'));
+  assert.equal((material.fragmentShader.match(/#include <colorspace_fragment>/g) || []).length, 3);
 
   const uniforms = material.uniforms;
   assert.ok('tDiffuse' in uniforms);
@@ -139,6 +141,8 @@ test('snapshotPageBackground and createFallbackBackgroundCanvas generate valid t
   assert.equal(snapshot.texture.flipY, false);
   assert.equal(snapshot.texture.minFilter, THREE.LinearFilter);
   assert.equal(snapshot.texture.magFilter, THREE.LinearFilter);
+  assert.equal(snapshot.source, 'FALLBACK');
+  assert.equal(SNAPSHOT_TIMEOUT_MS, 900);
 });
 
 test('GravityScene initializes with LensingPipeline and handles background & lensing strength', () => {
@@ -174,14 +178,18 @@ test('GravityScene initializes with LensingPipeline and handles background & len
     canvas: { width: 800, height: 600 },
     width: 800,
     height: 600,
+    source: 'REAL_SNAPSHOT',
   };
   scene.setBackground(mockSnapshot);
   assert.ok(scene.backgroundMesh);
   assert.equal(scene.backgroundMesh.renderOrder, 0);
   assert.equal(scene.backgroundMesh.position.z, -5);
+  assert.equal(scene.backgroundMesh.material.side, THREE.DoubleSide);
+  assert.equal(mockCanvas.dataset.backgroundSource, 'REAL_SNAPSHOT');
 
   scene.clearBackground();
   assert.equal(scene.backgroundMesh, null);
+  assert.equal(mockCanvas.dataset.backgroundSource, undefined);
 
   // Render method does not throw when lensing active or inactive
   scene.setLensingStrength(1.0);

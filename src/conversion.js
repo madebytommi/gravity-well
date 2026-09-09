@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { finiteOr } from './config.js';
 
+export const SNAPSHOT_TIMEOUT_MS = 900;
+
 function inlineComputedStyles(source, target) {
   const computed = getComputedStyle(source);
   // Copy the browser's resolved kebab-case properties verbatim. This keeps
@@ -123,7 +125,7 @@ export async function snapshotPageBackground(width, height) {
     texture.flipY = false;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    return { canvas, texture, width: w, height: h };
+    return { canvas, texture, width: w, height: h, source: 'FALLBACK' };
   }
 
   const gravityElements = [...document.querySelectorAll('[data-gravity]')];
@@ -135,11 +137,13 @@ export async function snapshotPageBackground(width, height) {
   }
 
   let canvas = null;
+  let backgroundSource = 'FALLBACK';
 
   try {
     const shell = document.querySelector('.site-shell') || document.body;
     if (shell) {
       const clone = shell.cloneNode(true);
+      inlineComputedStyles(shell, clone);
       // Remove canvas and controls from snapshot clone
       const canvasInClone = clone.querySelector('#gravity-canvas');
       if (canvasInClone) canvasInClone.remove();
@@ -191,11 +195,17 @@ export async function snapshotPageBackground(width, height) {
         img.src = source;
       });
 
+      let timeoutId = null;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Snapshot timed out')), 220);
+        timeoutId = window.setTimeout(() => reject(new Error('Snapshot timed out')), SNAPSHOT_TIMEOUT_MS);
       });
 
-      const loadedImg = await Promise.race([loadPromise, timeoutPromise]);
+      let loadedImg;
+      try {
+        loadedImg = await Promise.race([loadPromise, timeoutPromise]);
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
 
       const c = document.createElement('canvas');
       c.width = Math.max(1, Math.round(w * scale));
@@ -207,6 +217,7 @@ export async function snapshotPageBackground(width, height) {
         ctx.drawImage(fallback, 0, 0);
         ctx.drawImage(loadedImg, 0, 0, c.width, c.height);
         canvas = c;
+        backgroundSource = 'REAL_SNAPSHOT';
       }
     }
   } catch {
@@ -228,7 +239,7 @@ export async function snapshotPageBackground(width, height) {
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  return { canvas, texture, width: w, height: h };
+  return { canvas, texture, width: w, height: h, source: backgroundSource };
 }
 
 export async function snapshotElement(element) {

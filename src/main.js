@@ -31,6 +31,7 @@ let resetStartedAt = 0;
 let resetLensingStart = 1.0;
 let resetTargets = new Map();
 let resetFinalized = false;
+let activationInProgress = false;
 
 function stagingPosition(index, measure) {
   const width = window.innerWidth;
@@ -102,64 +103,71 @@ function updateStrength() {
 }
 
 async function enterGravity() {
-  if (!state.transition(STATES.TRANSITIONING)) return;
-  captured = 0;
-  captureCount.textContent = '0';
-  simulation.clear();
-  bodies.splice(0);
-  scene.resize();
-  simulation.setCenter(scene.center);
+  if (activationInProgress || state.value !== STATES.NORMAL) return;
+  activationInProgress = true;
 
-  // Take one-time snapshot of visible page at transition start
-  transitionStartedAt = performance.now();
-  transitionDuration = (gravityElements.length * 88) + CONFIG.transitionMs;
-  scene.setLensingStrength(0.0);
-  const bgSnapshot = await snapshotPageBackground(window.innerWidth, window.innerHeight);
-  if (state.value !== STATES.TRANSITIONING) return;
-  scene.setBackground(bgSnapshot);
+  try {
+    // Capture the normal page before state CSS begins collapsing its static visuals.
+    const bgSnapshot = await snapshotPageBackground(window.innerWidth, window.innerHeight);
+    if (!state.transition(STATES.TRANSITIONING)) return;
 
-  const snapshots = await Promise.all(gravityElements.map(async (element, index) => ({ element, index, snapshot: await snapshotElement(element), measure: measureElement(element) })));
-  if (state.value !== STATES.TRANSITIONING) return;
-  // Snapshot decoding can take longer than a frame; start the capture grace
-  // period when the final body actually enters the field.
-  simulation.resetClock();
-  for (const { element, index, snapshot, measure } of snapshots) {
-    if (state.value !== STATES.TRANSITIONING) break;
-    const inViewport = measure.y + measure.height / 2 > 0 && measure.y - measure.height / 2 < window.innerHeight;
-    const placement = inViewport ? measure : stagingPosition(index, measure);
-    const isCard = element.classList.contains('object-card');
-    const body = {
-      id: element.dataset.bodyId,
-      element,
-      x: placement.x,
-      y: placement.y,
-      originX: measure.x,
-      originY: measure.y,
-      width: placement.width,
-      height: placement.height,
-      radius: Math.max(22, Math.min(placement.width, placement.height) * .38),
-      mass: clamp((measure.width * measure.height) / 26_000, .7, 2.3),
-      zIndex: index,
-      scale: isCard ? 0.88 : 1,
-      opacity: 1,
-      status: 'ACTIVE',
-      angle: 0,
-      sourceVisibility: element.style.visibility,
-    };
-    seedTangentialVelocity(body, scene.center, index);
-    const sprite = makeBodySprite(snapshot);
-    scene.addBody(body, sprite);
-    simulation.addBody(body);
-    element.style.visibility = 'hidden';
-    bodies.push(body);
-    // Let each body enter on its own beat so the field reads as a release,
-    // while staying short enough that the entire set is interactive quickly.
-    await new Promise((resolve) => window.setTimeout(resolve, 88));
+    captured = 0;
+    captureCount.textContent = '0';
+    simulation.clear();
+    bodies.splice(0);
+    scene.resize();
+    simulation.setCenter(scene.center);
+
+    transitionStartedAt = performance.now();
+    transitionDuration = (gravityElements.length * 88) + CONFIG.transitionMs;
+    scene.setLensingStrength(0.0);
+    scene.setBackground(bgSnapshot);
+
+    const snapshots = await Promise.all(gravityElements.map(async (element, index) => ({ element, index, snapshot: await snapshotElement(element), measure: measureElement(element) })));
+    if (state.value !== STATES.TRANSITIONING) return;
+    // Snapshot decoding can take longer than a frame; start the capture grace
+    // period when the final body actually enters the field.
+    simulation.resetClock();
+    for (const { element, index, snapshot, measure } of snapshots) {
+      if (state.value !== STATES.TRANSITIONING) break;
+      const inViewport = measure.y + measure.height / 2 > 0 && measure.y - measure.height / 2 < window.innerHeight;
+      const placement = inViewport ? measure : stagingPosition(index, measure);
+      const isCard = element.classList.contains('object-card');
+      const body = {
+        id: element.dataset.bodyId,
+        element,
+        x: placement.x,
+        y: placement.y,
+        originX: measure.x,
+        originY: measure.y,
+        width: placement.width,
+        height: placement.height,
+        radius: Math.max(22, Math.min(placement.width, placement.height) * .38),
+        mass: clamp((measure.width * measure.height) / 26_000, .7, 2.3),
+        zIndex: index,
+        scale: isCard ? 0.88 : 1,
+        opacity: 1,
+        status: 'ACTIVE',
+        angle: 0,
+        sourceVisibility: element.style.visibility,
+      };
+      seedTangentialVelocity(body, scene.center, index);
+      const sprite = makeBodySprite(snapshot);
+      scene.addBody(body, sprite);
+      simulation.addBody(body);
+      element.style.visibility = 'hidden';
+      bodies.push(body);
+      // Let each body enter on its own beat so the field reads as a release,
+      // while staying short enough that the entire set is interactive quickly.
+      await new Promise((resolve) => window.setTimeout(resolve, 88));
+    }
+    if (state.value !== STATES.TRANSITIONING) return;
+    window.clearTimeout(transitionTimer);
+    transitionTimer = window.setTimeout(() => state.transition(STATES.GRAVITY_ACTIVE), CONFIG.transitionMs);
+    scene.render();
+  } finally {
+    activationInProgress = false;
   }
-  if (state.value !== STATES.TRANSITIONING) return;
-  window.clearTimeout(transitionTimer);
-  transitionTimer = window.setTimeout(() => state.transition(STATES.GRAVITY_ACTIVE), CONFIG.transitionMs);
-  scene.render();
 }
 
 function resetGravity() {

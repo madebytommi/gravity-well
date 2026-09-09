@@ -28,6 +28,7 @@ varying vec2 vUv;
 void main() {
   if (uStrength <= 0.0001) {
     gl_FragColor = texture2D(tDiffuse, vUv);
+    #include <colorspace_fragment>
     return;
   }
 
@@ -38,6 +39,7 @@ void main() {
   // Event horizon check: inside event horizon, returns pitch black
   if (r < uHorizonRadius) {
     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    #include <colorspace_fragment>
     return;
   }
 
@@ -52,6 +54,10 @@ void main() {
   // Subtle chromatic dispersion: sample red and blue channels with small offset (+/-1.2%) near critical curve
   float dispersionMask = exp(-pow((r - uCriticalRadius) / max(0.001, uCriticalRadius * 0.8), 2.0));
   float dispersion = 0.012 * uStrength * dispersionMask;
+
+  // Keep the innermost visible ring legible while preserving outer and mid-field deflection.
+  float innerRestraint = mix(0.85, 1.0, smoothstep(uHorizonRadius, uCriticalRadius, r));
+  deflection *= innerRestraint;
 
   float defR = deflection * (1.0 + dispersion);
   float defG = deflection;
@@ -77,6 +83,7 @@ void main() {
   vec3 finalColor = mix(vec3(0.0), lensedColor, horizonEdge);
 
   gl_FragColor = vec4(finalColor, colG.a);
+  #include <colorspace_fragment>
 }
 `;
 

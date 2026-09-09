@@ -82,6 +82,7 @@ export class GravityScene {
   setBackground(snapshot) {
     this.clearBackground();
     if (!snapshot) return;
+    if (this.canvas?.dataset) this.canvas.dataset.backgroundSource = snapshot.source || 'FALLBACK';
     const texture = snapshot.texture || new THREE.CanvasTexture(snapshot.canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.flipY = false;
@@ -95,6 +96,7 @@ export class GravityScene {
       map: texture,
       depthTest: false,
       depthWrite: false,
+      side: THREE.DoubleSide,
     });
     const geometry = new THREE.PlaneGeometry(width, height);
     this.backgroundMesh = new THREE.Mesh(geometry, material);
@@ -110,6 +112,9 @@ export class GravityScene {
       this.backgroundMesh.material?.map?.dispose();
       this.backgroundMesh.material?.dispose();
       this.backgroundMesh = null;
+    }
+    if (this.canvas?.dataset) {
+      delete this.canvas.dataset.backgroundSource;
     }
   }
 
