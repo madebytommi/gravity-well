@@ -159,6 +159,7 @@ export class GravitySimulation {
       for (let secondIndex = firstIndex + 1; secondIndex < bodies.length; secondIndex += 1) {
         const second = bodies[secondIndex];
         if (second.status !== 'ACTIVE' || second.grabbed) continue;
+        if (first.ignorePairwiseCollisions || second.ignorePairwiseCollisions) continue;
         let dx = second.x - first.x;
         let dy = second.y - first.y;
         let distance = Math.hypot(dx, dy);

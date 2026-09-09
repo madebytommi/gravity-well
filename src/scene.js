@@ -3,6 +3,7 @@ import { CONFIG, clamp } from './config.js';
 import { disposeBodySprite } from './conversion.js';
 import { SingularityVisuals } from './singularity.js';
 import { LensingPipeline } from './lensing.js';
+import { DestructionManager } from './destruction.js';
 
 export class GravityScene {
   constructor(canvas, options = {}) {
@@ -18,6 +19,8 @@ export class GravityScene {
     this.bodiesGroup = new THREE.Group();
     this.bodiesGroup.renderOrder = 5;
     this.scene.add(this.bodiesGroup);
+
+    this.destructionManager = new DestructionManager(this.bodiesGroup);
 
     this.singularityVisuals = new SingularityVisuals();
     this.singularity = this.singularityVisuals.group;
@@ -138,6 +141,9 @@ export class GravityScene {
   }
 
   removeBody(body) {
+    if (this.destructionManager) {
+      this.destructionManager.disposeBody(body);
+    }
     if (!body.sprite) return;
     this.bodiesGroup.remove(body.sprite);
     this.canvas.dataset.spriteCount = String(this.bodiesGroup.children.length);
@@ -149,33 +155,25 @@ export class GravityScene {
     if (!body.sprite) return;
     body.sprite.position.x = body.x;
     body.sprite.position.y = body.y;
-    const scale = body.scale ?? 1;
 
-    // During capture, apply gentle tidal elongation and orientation toward singularity
     if (body.status === 'CAPTURING' && this.center) {
-      const dx = this.center.x - body.x;
-      const dy = this.center.y - body.y;
-      const angleToCenter = Math.atan2(dy, dx);
-      const progress = body.captureProgress || 0;
-      const currentAngle = body.angle || 0;
-
-      // Handle shortest angular difference without phase jumps
-      let angleDiff = (angleToCenter - currentAngle) % (Math.PI * 2);
-      if (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-      if (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-      const alignProgress = Math.min(1, progress * 1.8);
-      body.sprite.rotation.z = currentAngle + angleDiff * alignProgress;
-
-      // Tidal elongation along infall vector up to ~1.5x, compression down to ~0.2x
-      const stretch = 1 + Math.sin(progress * Math.PI) * 0.5;
-      const compress = Math.max(0.2, 1 - progress * 0.8);
-      body.sprite.scale.set(body.width * scale * stretch, body.height * scale * compress, 1);
+      this.destructionManager.updateBody(body, this.center);
+    } else if (body.status === 'CAPTURED') {
+      this.destructionManager.onCapture(body);
+      body.sprite.visible = false;
+      body.sprite.scale.set(0, 0, 1);
+      if (body.sprite.material) {
+        body.sprite.material.opacity = 0;
+      }
     } else {
+      body.sprite.visible = true;
       body.sprite.rotation.z = body.angle || 0;
+      const scale = body.scale ?? 1;
       body.sprite.scale.set(body.width * scale, body.height * scale, 1);
+      if (body.sprite.material) {
+        body.sprite.material.opacity = body.opacity ?? 1;
+      }
     }
-
-    body.sprite.material.opacity = body.opacity ?? 1;
   }
 
   update(dt, time, isFieldActive) {
@@ -183,6 +181,9 @@ export class GravityScene {
   }
 
   triggerCaptureReaction(body) {
+    if (this.destructionManager && (!body || body.status === 'CAPTURED' || (body.captureProgress ?? 0) >= 1.0)) {
+      this.destructionManager.onCapture(body);
+    }
     this.singularityVisuals.triggerCaptureReaction(body);
   }
 
@@ -225,6 +226,9 @@ export class GravityScene {
   }
 
   dispose() {
+    if (this.destructionManager) {
+      this.destructionManager.dispose();
+    }
     for (const child of [...this.bodiesGroup.children]) {
       this.bodiesGroup.remove(child);
       disposeBodySprite(child);

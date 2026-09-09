@@ -128,11 +128,11 @@ export async function snapshotPageBackground(width, height) {
     return { canvas, texture, width: w, height: h, source: 'FALLBACK' };
   }
 
-  const gravityElements = [...document.querySelectorAll('[data-gravity]')];
-  const savedVisibilities = gravityElements.map((el) => el.style.visibility);
+  const excludedElements = [...document.querySelectorAll('[data-gravity], [data-collapse]')];
+  const savedVisibilities = excludedElements.map((el) => el.style.visibility);
 
-  // Temporarily hide [data-gravity] elements so cards are not duplicated in background
-  for (const el of gravityElements) {
+  // Temporarily hide [data-gravity] and [data-collapse] elements so they are not baked into background
+  for (const el of excludedElements) {
     el.style.visibility = 'hidden';
   }
 
@@ -154,9 +154,9 @@ export async function snapshotPageBackground(width, height) {
       const readoutInClone = clone.querySelector('.capture-readout');
       if (readoutInClone) readoutInClone.remove();
 
-      // Ensure gravity elements in clone stay hidden
-      const gravityInClone = clone.querySelectorAll('[data-gravity]');
-      for (const el of gravityInClone) {
+      // Ensure gravity and collapse elements in clone stay hidden
+      const excludedInClone = clone.querySelectorAll('[data-gravity], [data-collapse]');
+      for (const el of excludedInClone) {
         el.style.visibility = 'hidden';
       }
 
@@ -223,9 +223,9 @@ export async function snapshotPageBackground(width, height) {
   } catch {
     // Snapshot failed or timed out; will use robust fallback
   } finally {
-    // Restore original visibility of [data-gravity] elements
-    for (let i = 0; i < gravityElements.length; i += 1) {
-      gravityElements[i].style.visibility = savedVisibilities[i];
+    // Restore original visibility of [data-gravity] and [data-collapse] elements
+    for (let i = 0; i < excludedElements.length; i += 1) {
+      excludedElements[i].style.visibility = savedVisibilities[i];
     }
   }
 
@@ -248,6 +248,8 @@ export async function snapshotElement(element) {
   const height = Math.max(24, Math.round(rect.height));
   const clone = element.cloneNode(true);
   clone.removeAttribute('data-gravity');
+  clone.removeAttribute('data-collapse');
+  clone.removeAttribute('data-collapse-stage');
   inlineComputedStyles(element, clone);
   clone.style.margin = '0';
   // Absolute hero markers are measured in the live page, but their snapshot

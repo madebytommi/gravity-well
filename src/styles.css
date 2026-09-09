@@ -38,6 +38,7 @@ h1, h2, h3, p { margin-top: 0; }
 h1, h2 { font-family: Iowan Old Style, Baskerville, "Times New Roman", serif; font-weight: 400; letter-spacing: -.045em; }
 h1 { font-size: clamp(4rem, 7.8vw, 8.4rem); line-height: .86; margin: 0 0 2.4rem; }
 h1 em, h2 em { color: var(--accent); font-style: italic; }
+.headline-part { display: inline-block; }
 .hero-lede { color: #b7b2a8; font-size: clamp(.94rem, 1.25vw, 1.08rem); line-height: 1.65; max-width: 27rem; }
 .hero-actions { align-items: center; display: flex; gap: 1.4rem; margin-top: 3.1rem; }
 .primary-action { align-items: center; background: var(--ink); border: 0; border-radius: 0; color: var(--bg); cursor: pointer; display: inline-flex; font-size: .72rem; font-weight: 700; gap: .7rem; letter-spacing: .1em; padding: 1rem 1.1rem; text-transform: uppercase; transition: background .25s ease, transform .25s ease; }

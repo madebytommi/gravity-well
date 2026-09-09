@@ -4,6 +4,7 @@ import { GravityScene } from './scene.js';
 import { GravitySimulation, seedTangentialVelocity } from './simulation.js';
 import { measureElement, makeBodySprite, snapshotElement, snapshotPageBackground } from './conversion.js';
 import { PointerGrabber } from './pointer.js';
+import { CollapseChoreographer } from './collapse.js';
 import './styles.css';
 
 const root = document.querySelector('.site-shell');
@@ -15,11 +16,13 @@ const captureCount = document.querySelector('#capture-count');
 const strengthInput = document.querySelector('#gravity-strength');
 const strengthValue = document.querySelector('#strength-value');
 const gravityElements = [...document.querySelectorAll('[data-gravity]')];
+const collapseElements = [...document.querySelectorAll('[data-collapse]')];
 const captureTotal = document.querySelector('#capture-total');
 captureTotal.textContent = String(gravityElements.length);
 
 const scene = new GravityScene(canvas);
 const bodies = [];
+const choreographer = new CollapseChoreographer();
 let animationFrame = 0;
 let previousTime = performance.now();
 let accumulator = 0;
@@ -27,6 +30,7 @@ let transitionTimer = null;
 let captured = 0;
 let transitionStartedAt = 0;
 let transitionDuration = 1000;
+let gravityActiveStartedAt = 0;
 let resetStartedAt = 0;
 let resetLensingStart = 1.0;
 let resetTargets = new Map();
@@ -53,6 +57,11 @@ function stagingPosition(index, measure) {
 }
 
 const state = new GravityState((next) => {
+  if (next === STATES.GRAVITY_ACTIVE) {
+    gravityActiveStartedAt = performance.now();
+  } else if (next !== STATES.GRAVITY_ACTIVE) {
+    gravityActiveStartedAt = 0;
+  }
   root.dataset.state = next;
   stateLabel.textContent = {
     [STATES.NORMAL]: 'System normal',
@@ -74,8 +83,11 @@ const simulation = new GravitySimulation({
   center: scene.center,
   strength: CONFIG.defaultStrength,
   onCapture: (body) => {
-    captured += 1;
-    captureCount.textContent = String(captured);
+    if (body.element?.hasAttribute('data-gravity')) {
+      captured += 1;
+      captureCount.textContent = String(captured);
+    }
+    scene.destructionManager.onCapture(body);
     scene.syncBody(body);
     scene.triggerCaptureReaction(body);
     // Keep the captured plane attached at zero scale until reset so the
@@ -114,6 +126,8 @@ async function enterGravity() {
     captured = 0;
     captureCount.textContent = '0';
     simulation.clear();
+    choreographer.clear();
+    scene.destructionManager.reset(bodies);
     bodies.splice(0);
     scene.resize();
     simulation.setCenter(scene.center);
@@ -122,6 +136,55 @@ async function enterGravity() {
     transitionDuration = (gravityElements.length * 88) + CONFIG.transitionMs;
     scene.setLensingStrength(0.0);
     scene.setBackground(bgSnapshot);
+
+    // Snapshot collapse elements and place pinned WebGL proxies exactly over DOM positions
+    const collapseSnapshots = await Promise.all(
+      collapseElements.map(async (element, index) => ({
+        element,
+        index,
+        snapshot: await snapshotElement(element),
+        measure: measureElement(element),
+      }))
+    );
+
+    if (state.value !== STATES.TRANSITIONING) return;
+
+    for (const { element, index, snapshot, measure } of collapseSnapshots) {
+      const stage = element.dataset.collapseStage || 'B';
+      const collapseId = element.dataset.collapse;
+      const isHeadline = stage === 'D' || collapseId === 'headline-1' || collapseId === 'headline-2';
+      const body = {
+        id: collapseId,
+        collapseId,
+        stage,
+        collapseIndex: index,
+        element,
+        x: measure.x,
+        y: measure.y,
+        originX: measure.x,
+        originY: measure.y,
+        width: measure.width,
+        height: measure.height,
+        radius: Math.max(16, Math.min(measure.width, measure.height) * 0.38),
+        mass: isHeadline ? 3.2 : clamp((measure.width * measure.height) / 26_000, 0.5, 1.8),
+        ignorePairwiseCollisions: isHeadline,
+        zIndex: 20 + index,
+        scale: 1,
+        opacity: 1,
+        status: 'PINNED',
+        angle: 0,
+        angularVelocity: 0,
+        vx: 0,
+        vy: 0,
+        sourceVisibility: element.style.visibility,
+      };
+      const sprite = makeBodySprite(snapshot);
+      scene.addBody(body, sprite);
+      simulation.addBody(body);
+      choreographer.addBody(body);
+      element.style.visibility = 'hidden';
+      bodies.push(body);
+    }
 
     const snapshots = await Promise.all(gravityElements.map(async (element, index) => ({ element, index, snapshot: await snapshotElement(element), measure: measureElement(element) })));
     if (state.value !== STATES.TRANSITIONING) return;
@@ -175,10 +238,12 @@ function resetGravity() {
   state.transition(STATES.RESETTING);
   pointer.end(null, true);
   window.clearTimeout(transitionTimer);
+  scene.destructionManager.reset(bodies);
   resetStartedAt = performance.now();
   resetLensingStart = scene.lensingStrength || 1.0;
   resetFinalized = false;
-  resetTargets = new Map(gravityElements.map((element) => [element.dataset.bodyId, measureElement(element)]));
+  const allElements = [...gravityElements, ...collapseElements];
+  resetTargets = new Map(allElements.map((element) => [element.dataset.bodyId || element.dataset.collapse, measureElement(element)]));
   for (const body of bodies) {
     body.resetStart = { x: body.x, y: body.y, width: body.width, height: body.height, angle: body.angle || 0, scale: body.scale ?? 1, opacity: body.opacity ?? 1 };
     body.resetTarget = resetTargets.get(body.id) ?? { x: body.originX, y: body.originY, width: body.width, height: body.height };
@@ -191,12 +256,14 @@ function resetGravity() {
 function finalizeReset() {
   if (resetFinalized) return;
   resetFinalized = true;
+  scene.destructionManager.reset(bodies);
   for (const body of bodies) {
     body.element.style.visibility = body.sourceVisibility ?? '';
     scene.removeBody(body);
   }
   bodies.splice(0);
   simulation.clear();
+  choreographer.clear();
   captured = 0;
   captureCount.textContent = '0';
   root.classList.remove('is-grabbing');
@@ -226,6 +293,12 @@ function animate(now) {
     scene.setLensingStrength(resetLensingStart * (1 - eased));
   } else {
     scene.setLensingStrength(0.0);
+  }
+
+  if (state.value === STATES.GRAVITY_ACTIVE) {
+    if (gravityActiveStartedAt === 0) gravityActiveStartedAt = now;
+    const activeElapsedTime = Math.max(0, (now - gravityActiveStartedAt) / 1000);
+    choreographer.update(activeElapsedTime, frameDelta, scene.center);
   }
 
   if (isFieldActive) {

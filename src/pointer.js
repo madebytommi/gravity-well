@@ -21,20 +21,27 @@ export class PointerGrabber {
   }
 
   pick(x, y) {
-    return this.getBodies().filter((body) => body.status === 'ACTIVE').map((body) => ({
-      body,
-      distance: Math.hypot(x - body.x, y - body.y),
-      hit: (() => {
-        const deltaX = x - body.x;
-        const deltaY = y - body.y;
-        const angle = body.angle || 0;
-        const cosine = Math.cos(angle);
-        const sine = Math.sin(angle);
-        const localX = cosine * deltaX + sine * deltaY;
-        const localY = -sine * deltaX + cosine * deltaY;
-        return Math.abs(localX) <= body.width * .56 && Math.abs(localY) <= body.height * .56;
-      })(),
-    })).filter((item) => item.hit).sort((a, b) => a.distance - b.distance)[0]?.body ?? null;
+    return this.getBodies()
+      .filter((body) => {
+        if (body.destructionUngrabbable || (body.captureProgress ?? 0) >= 0.35) return false;
+        return body.status === 'ACTIVE' || body.status === 'CAPTURING';
+      })
+      .map((body) => ({
+        body,
+        distance: Math.hypot(x - body.x, y - body.y),
+        hit: (() => {
+          const deltaX = x - body.x;
+          const deltaY = y - body.y;
+          const angle = body.angle || 0;
+          const cosine = Math.cos(angle);
+          const sine = Math.sin(angle);
+          const localX = cosine * deltaX + sine * deltaY;
+          const localY = -sine * deltaX + cosine * deltaY;
+          return Math.abs(localX) <= body.width * .56 && Math.abs(localY) <= body.height * .56;
+        })(),
+      }))
+      .filter((item) => item.hit)
+      .sort((a, b) => a.distance - b.distance)[0]?.body ?? null;
   }
 
   handlePointerDown(event) {
@@ -56,6 +63,10 @@ export class PointerGrabber {
 
   handlePointerMove(event) {
     if (!this.active || event.pointerId !== this.pointerId) return;
+    if (this.active.destructionUngrabbable || (this.active.captureProgress ?? 0) >= 0.35) {
+      this.end(event, true);
+      return;
+    }
     event.preventDefault();
     const now = performance.now();
     this.points.push({ x: event.clientX, y: event.clientY, time: now });
